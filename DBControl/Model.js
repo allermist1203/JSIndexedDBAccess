@@ -52,6 +52,7 @@ export class Model{
         var fileds = tableParams[3];
         if (autoIncrement) {
             var keyPathValue = (this.constructor)._nextKeyPathValue;
+            (this.constructor)._nextKeyPathValue++;
             console.log(`SET KEY: ${this.#tableName} ${keyPathValue}`);
             this[keyPath].value = keyPathValue;
         }

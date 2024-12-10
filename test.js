@@ -45,7 +45,7 @@ TestDB.select(filterFunc).then(datas => {
 });
 */
 
-/*
+
 USE_MODELS.useModels = [TestDB, TestDB2];
 USE_MODELS.createTables().then(() => {
     var data1 = new TestDB();
@@ -53,14 +53,13 @@ USE_MODELS.createTables().then(() => {
     data1.note.value = 'test';
     data1.save();
     console.log(data1);
-    var data2 = new TestDB2();
+    var data2 = new TestDB();
     data2.subid.value = 1;
     data2.note.value = 'test';
     data2.save();
     console.log(data2);
-    DB_ACCESS.commit();
 });
-*/
 
-console.log(await TestDB.selectOne((record)=>{return record['id'] > 20;}));
-console.log(await TestDB.select((record)=>{return record['id'] > 20;}));
+
+//console.log(await TestDB.selectOne((record)=>{return record['id'] > 20;}));
+//console.log(await TestDB.select((record)=>{return record['id'] > 20;}));
