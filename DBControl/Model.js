@@ -105,6 +105,13 @@ export class Model{
         return this.select(filterFunc);
     }
 
+    static async selectOne( filterFunc) {
+        var modelData = null;
+        var modelDatas = await this.select(filterFunc);
+        if (modelDatas.length > 0) modelData = modelDatas[0];
+        return modelData;
+    }
+
     static async select( filterFunc) {
         var datas = await DB_ACCESS.getDatas((new this).tableName,filterFunc);
         var modelDatas = new Array();

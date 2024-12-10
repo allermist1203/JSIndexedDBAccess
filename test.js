@@ -45,7 +45,7 @@ TestDB.select(filterFunc).then(datas => {
 });
 */
 
-
+/*
 USE_MODELS.useModels = [TestDB, TestDB2];
 USE_MODELS.createTables().then(() => {
     var data1 = new TestDB();
@@ -60,6 +60,7 @@ USE_MODELS.createTables().then(() => {
     console.log(data2);
     DB_ACCESS.commit();
 });
+*/
 
-
-
+console.log(await TestDB.selectOne((record)=>{return record['id'] > 20;}));
+console.log(await TestDB.select((record)=>{return record['id'] > 20;}));
