@@ -1,14 +1,22 @@
 import { Filed } from './Fileds.js';
 import { DB_ACCESS } from './DBAccess.js';
 
-export class Model{
-    #tableName;
 
-    constructor() {
+export class Model{
+    static _nextKeyPathValue ;
+    #tableName;
+    #isSelectedData;
+
+    constructor(param={isSelectedData:false,}) {
         if (new.target == Model) {
             throw new Error('Cannot instantiate an abstract class.');
         }
         this.#tableName = new.target.name;
+        this.#isSelectedData = param.isSelectedData;
+    }
+
+    get tableName() {
+        return this.#tableName;
     }
 
     #getTableParam() {
@@ -32,18 +40,25 @@ export class Model{
     #createRecord(fileds) {
         var record = {};
         fileds.forEach(filed => {
-            if(!this[filed].autoIncrement)
-                record[filed] = this[filed].value;
+            record[filed] = this[filed].value;
         });
         return record
     }
 
-    insert() {
+    #insert() {
         var tableParams = this.#getTableParam();
-        DB_ACCESS.insertData(this.#tableName, this.#createRecord(tableParams[3]));
+        var keyPath = tableParams[0];
+        var autoIncrement = tableParams[1];
+        var fileds = tableParams[3];
+        if (autoIncrement) {
+            var keyPathValue = (this.constructor)._nextKeyPathValue;
+            console.log(`SET KEY: ${this.#tableName} ${keyPathValue}`);
+            this[keyPath].value = keyPathValue;
+        }
+        DB_ACCESS.insertData(this.#tableName, this.#createRecord(fileds));
     }
 
-    update() {
+    #update() {
         var tableParams = this.#getTableParam();
         DB_ACCESS.updateData(
             this.#tableName,
@@ -53,15 +68,36 @@ export class Model{
         );
     }
 
+    save() {
+        if (this.#isSelectedData) this.#update();
+        else this.#insert();
+    }
+
     delete() {
         var tableParams = this.#getTableParam();
         DB_ACCESS.deleteData(this.#tableName, this[tableParams[0]].value);
     }
 
-    static createTable() {
+    static async createTable() {
         var table = new this();
         var tableParams = table.#getTableParam();
-        DB_ACCESS.createTable(this.name, tableParams[0], tableParams[1], tableParams[2]);
+        DB_ACCESS.createTable(table.tableName, tableParams[0], tableParams[2]);
+    }
+
+    static async setNextKeyPathValue() {
+        var table = new this();
+        var tableParams = table.#getTableParam();
+        var keyPath = tableParams[0];
+        var autoIncrement = tableParams[1];
+        if (autoIncrement) {
+            var maxValue = 0;
+            (await this.selectAll()).forEach( data => {
+                if (maxValue < data[keyPath].value)
+                    maxValue = data[keyPath].value;
+            });
+            this._nextKeyPathValue = maxValue + 1;
+            console.log(`nextKeyPathValue: ${table.#tableName} ${this._nextKeyPathValue}`);
+        }
     }
 
     static async selectAll() {
@@ -70,10 +106,10 @@ export class Model{
     }
 
     static async select( filterFunc) {
-        var datas = await DB_ACCESS.getDatas(this.name,filterFunc);
+        var datas = await DB_ACCESS.getDatas((new this).tableName,filterFunc);
         var modelDatas = new Array();
         datas.forEach(data => {
-            var modelData = new this();
+            var modelData = new this({isSelectedData:true});
             Object.keys(data).forEach(filedName => {
                 modelData[filedName].value = data[filedName];
             });
@@ -82,3 +118,60 @@ export class Model{
         return modelDatas;
     }
 }
+
+
+class Models{
+    #useModels = new Array();
+    #nextKeyPathValues = {};
+
+    get useModels() {
+        return this.#useModels;
+    }
+
+    set useModels(models) {
+        var isModels = true;
+        models.forEach(model => {
+            try {
+                isModels &= (new model) instanceof Model;
+            } catch {
+                isModels = false;
+            }
+        });
+        if(!(models instanceof Array) || !isModels)
+            throw new Error('Require Models Array.');
+        this.#useModels = models;
+    }
+
+    nextKeyPathValue(modelName) {
+        console.log(`nextKeyPathValue: ${modelName}`,this.#nextKeyPathValues)
+        return this.#nextKeyPathValues[modelName];
+    }
+
+    async createTables() {
+        this.#useModels.forEach(model => {
+            model.createTable();
+        });
+        await DB_ACCESS.commit();
+        await this.setNextKeyPathValues();
+    }
+
+    async setNextKeyPathValues() {
+        var waitCondtionFunc = (complateFlag) => {
+            var isComplete = true;
+            Object.keys(complateFlag).forEach(modelName => {
+                isComplete &= complateFlag[modelName];
+            });
+            return !isComplete;
+        }
+        var complateFlag = {};
+        this.#useModels.forEach(model => {
+            complateFlag[(new model).tableName] = false;
+            model.setNextKeyPathValue().then(() => {
+                complateFlag[(new model).tableName] = true;
+            });
+        });
+        await DB_ACCESS.waitReady(waitCondtionFunc,complateFlag);
+    }
+}
+
+export const USE_MODELS = new Models();

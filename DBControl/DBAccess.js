@@ -1,4 +1,3 @@
-
 async function wait(second) {
     return new Promise(resolve => setTimeout(resolve, 1000 * second));
 }
@@ -19,7 +18,6 @@ async function waitReady( maxWaitTime, maxWaitLoop, waitCondtionFunc, waitCondti
 class DBAccess{
     static KEY_TABLENAME = 'TABLE_NAME'
     static KEY_KEYPATH = 'KEYPATH'
-    static KEY_AUTOINCREMENT = 'AUTOINCREMENT'
     static KEY_INDEXES = 'INDEXES'
     #dbName = 'sample'
     #dbVersion = 1;
@@ -38,11 +36,10 @@ class DBAccess{
         this.#deleteDatas = {};
     }
 
-    createTable(tableName, keyPath, autoIncrement, indexes) {
+    createTable(tableName, keyPath, indexes) {
         this.#createTables.push({
             [DBAccess.KEY_TABLENAME] : tableName,
             [DBAccess.KEY_KEYPATH] : keyPath,
-            [DBAccess.KEY_AUTOINCREMENT] : autoIncrement,
             [DBAccess.KEY_INDEXES] : indexes,
         });
     }
@@ -54,7 +51,6 @@ class DBAccess{
             // キーパスとobjectStore作成
             var opt = {
                 keyPath: item[DBAccess.KEY_KEYPATH],
-                autoIncrement: item[DBAccess.KEY_AUTOINCREMENT]
             }
             var objectStore = db.createObjectStore(tableName, opt);
             // インデックス作成
@@ -82,7 +78,6 @@ class DBAccess{
         Object.keys(this.#insertDatas).forEach(tableName => {
             console.log(`INSERT START: ${tableName}`)
             var objectStore = transaction.objectStore(tableName);
-            console.log(`autoIncrement: ${objectStore.autoIncrement}`)
             this.#insertDatas[tableName].forEach(record => {
                 console.log('INSERT: ',record);
                 objectStore.add(record);
@@ -190,7 +185,7 @@ class DBAccess{
         var waitCondtionFunc = (complateFlag) => {
             return !complateFlag['upgrade'] || !complateFlag['request'];
         }
-        await waitReady(this.#timeout, this.#maxWaitLoop, waitCondtionFunc, complateFlag);
+        await this.waitReady(waitCondtionFunc, complateFlag);
         this.#clear();
     }
 
@@ -203,6 +198,7 @@ class DBAccess{
             throw new Error(`Failed to connect ${DBAccess.dbName}.`);
         };
         connection.onsuccess = (event) => {
+            console.log(`SELECT: ${tableName}`);
             request =
                 (event.target.result)
                     .transaction(tableName, 'readonly')
@@ -224,8 +220,17 @@ class DBAccess{
         var waitCondtionFunc = (complateFlag) => {
             return !complateFlag['request'];
         }
-        await waitReady(this.#timeout, this.#maxWaitLoop, waitCondtionFunc, complateFlag);
+        await this.waitReady(waitCondtionFunc, complateFlag);
         return results;
+    }
+
+    async waitReady(waitCondtionFunc, complateFlag) {
+        await waitReady(
+            this.#timeout,
+            this.#maxWaitLoop,
+            waitCondtionFunc,
+            complateFlag
+        );
     }
 }
 
