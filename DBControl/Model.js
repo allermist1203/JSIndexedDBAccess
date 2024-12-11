@@ -1,4 +1,4 @@
-import { Filed } from './Fileds.js';
+import { Filed } from './Fieds.js';
 import { DB_ACCESS } from './DBAccess.js';
 
 

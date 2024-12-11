@@ -1,5 +1,5 @@
 import { Model, USE_MODELS } from './DBControl/Model.js';
-import { IntegerFiled, StringFiled } from './DBControl/Fileds.js';
+import { IntegerFiled, StringFiled } from './DBControl/Fields.js';
 import { DB_ACCESS } from './DBControl/DBAccess.js';
 
 class TestDB extends Model{
