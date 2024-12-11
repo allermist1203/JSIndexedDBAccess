@@ -221,6 +221,11 @@ class DBAccess{
             return !complateFlag['request'];
         }
         await this.waitReady(waitCondtionFunc, complateFlag);
+        if(Object.keys(this.#insertDatas).includes(tableName))
+            this.#insertDatas[tableName].forEach(record => {
+                if (filterFunc(record))
+                    results.push(record);
+            });
         return results;
     }
 
