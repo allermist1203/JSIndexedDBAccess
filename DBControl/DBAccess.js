@@ -25,13 +25,21 @@ class DBAccess{
     #maxWaitLoop = 5;
     #createTables = new Array();
     #operatedTables  = new Array();
+    #clearedTables  = new Array();
     #insertDatas = {};
     #updateDatas = {};
     #deleteDatas = {};
 
+    get timeout() { return this.#timeout; }
+    get maxWaitLoop() { return this.#maxWaitLoop; }
+
+    get dbName() { return this.#dbName; }
+    set dbName(val) { this.#dbName = val; }
+
     #clear() {
         this.#createTables = new Array();
         this.#operatedTables  = new Array();
+        this.#clearedTables  = new Array();
         this.#insertDatas = {};
         this.#deleteDatas = {};
     }
@@ -147,6 +155,20 @@ class DBAccess{
             this.#operatedTables.push(tableName);
     }
 
+    clearTable(tableName) {
+        if (!this.#clearedTables.includes(tableName))
+            this.#clearedTables.push(tableName);
+        this.#addOperatedTables(tableName);
+    }
+
+    #clearTable(transaction) {
+        this.#clearedTables.forEach(tableName => {
+            console.log(`CLEAR START: ${tableName}`)
+            transaction.objectStore(tableName).clear();
+            console.log(`CLEAR FIN: ${tableName}`)
+        });
+    }
+
     async commit() {
         var complateFlag = {
             'upgrade': true,
@@ -167,6 +189,7 @@ class DBAccess{
                     this.#operatedTables,
                     "readwrite"
                 );
+                this.#clearTable(transaction);
                 this.#deleteData(transaction);
                 this.#updateData(transaction);
                 this.#insertData(transaction);

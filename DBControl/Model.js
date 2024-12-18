@@ -1,4 +1,4 @@
-import { Filed } from './Fieds.js';
+import { Filed } from './Fields.js';
 import { DB_ACCESS } from './DBAccess.js';
 
 
@@ -23,7 +23,7 @@ export class Model{
         var keyPath;
         var autoIncrement;
         var indexes = {};
-        var fileds = new Array();
+        var fields = new Array();
         Object.getOwnPropertyNames(this).forEach(property => {
             if (!(this[property] instanceof Filed)) return;
             var column = this[property];
@@ -32,15 +32,15 @@ export class Model{
                 autoIncrement = column.autoIncrement;
             }
             if (column.requiredIndex) indexes[property] = column.unique;
-            fileds.push(property);
+            fields.push(property);
         });
-        return [keyPath, autoIncrement, indexes, fileds];
+        return [keyPath, autoIncrement, indexes, fields];
     }
 
     #createRecord(fileds) {
         var record = {};
-        fileds.forEach(filed => {
-            record[filed] = this[filed].value;
+        fileds.forEach(fields => {
+            record[fields] = this[fields].value;
         });
         return record
     }
@@ -50,7 +50,7 @@ export class Model{
         var keyPath = tableParams[0];
         var autoIncrement = tableParams[1];
         var fileds = tableParams[3];
-        if (autoIncrement) {
+        if (autoIncrement && this[keyPath].value==null) {
             var keyPathValue = (this.constructor)._nextKeyPathValue;
             (this.constructor)._nextKeyPathValue++;
             console.log(`SET KEY: ${this.#tableName} ${keyPathValue}`);
@@ -77,6 +77,18 @@ export class Model{
     delete() {
         var tableParams = this.#getTableParam();
         DB_ACCESS.deleteData(this.#tableName, this[tableParams[0]].value);
+    }
+
+    #toDict() {
+        var tableParams = this.#getTableParam();
+        return this.#createRecord(tableParams[3]);
+    }
+
+    #toModel(data) {
+        var tableParams = this.#getTableParam();
+        tableParams[3].forEach(field => {
+            this[field].value = data[field];
+        });
     }
 
     static async createTable() {
@@ -124,6 +136,26 @@ export class Model{
             modelDatas.push(modelData);
         });
         return modelDatas;
+    }
+
+    static async export() {
+        var datas = new Array();
+        (await this.selectAll()).forEach(modelData => {
+            datas.push(modelData.#toDict());
+        });
+        return datas;
+    }
+
+    static import(datas) {
+        datas.forEach(data => {
+            var model = new this();
+            model.#toModel(data);
+            model.save();
+        })
+    }
+
+    static clearTable() {
+        DB_ACCESS.clearTable(this.name);
     }
 }
 
@@ -179,6 +211,36 @@ class Models{
             });
         });
         await DB_ACCESS.waitReady(waitCondtionFunc,complateFlag);
+    }
+
+    async export() {
+        var datas = {};
+        for await (var model of this.#useModels) {
+            datas[model.name] = await model.export();
+        }
+        return datas;
+    }
+
+    async import( datas) {
+        for (var model of this.#useModels) {
+            if (!Object.keys(datas).includes(model.name))
+                continue;
+            model.import(datas[model.name]);
+        }
+        await DB_ACCESS.commit();
+    }
+
+    async clearAllTable() {
+        for (var model of this.#useModels) {
+            console.log('clearAllTable',model.name);
+            model.clearTable();
+        }
+        await DB_ACCESS.commit();
+    }
+
+    async restore(datas) {
+        await this.clearAllTable();
+        await this.import(datas);
     }
 }
 
